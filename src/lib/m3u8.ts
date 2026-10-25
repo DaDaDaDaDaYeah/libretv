@@ -41,7 +41,8 @@ export function rewriteM3u8(
   content: string,
   baseUrl: string,
   depth = 0,
-  prefix: string = PROXY_BASE
+  prefix: string = PROXY_BASE,
+  suffix = ''
 ): string {
   if (depth > 5) return content;
   const lines = content.split('\n');
@@ -49,12 +50,12 @@ export function rewriteM3u8(
     if (line.startsWith('#EXT-X-KEY') || line.startsWith('#EXT-X-MAP')) {
       return line.replace(/(URI=")([^"]+)(")/g, (m, p1: string, uri: string, p2: string) => {
         if (isProxiedUri(uri)) return m;
-        return p1 + prefix + encodeURIComponent(makeAbsolute(uri, baseUrl)) + p2;
+        return p1 + prefix + encodeURIComponent(makeAbsolute(uri, baseUrl)) + suffix + p2;
       });
     }
     if (line.startsWith('#') || line.trim() === '') return line;
     if (isProxiedUri(line)) return line;
-    return prefix + encodeURIComponent(makeAbsolute(line, baseUrl));
+    return prefix + encodeURIComponent(makeAbsolute(line, baseUrl)) + suffix;
   });
   return out.join('\n');
 }
