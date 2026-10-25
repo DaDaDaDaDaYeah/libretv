@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Header } from '@/components/header';
 import { RecommendSection } from '@/components/douban-section';
+import { ContinueWatching } from '@/components/continue-watching';
 import { DetailModal } from '@/components/detail-modal';
 import { AggregatedCard, aggregateResults } from '@/components/video-card';
 import { useAppStore, resolveSource, isInDisabledSubscription, isSourceDisabled } from '@/lib/store';
@@ -363,6 +364,9 @@ function HomeContent() {
             )}
           </section>
         )}
+
+        {/* 继续观看（有搜索时隐藏；无本机观看记录时不渲染） */}
+        {!urlQuery && <ContinueWatching />}
 
         {/* 首页推荐（有搜索时隐藏） */}
         {!urlQuery && (

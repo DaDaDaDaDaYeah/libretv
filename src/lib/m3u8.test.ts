@@ -49,6 +49,20 @@ describe('rewriteM3u8', () => {
   });
 });
 
+describe('rewriteM3u8 · suffix（AirPlay 令牌透传）', () => {
+  it('分片、嵌套列表、key、map 都带上后缀', () => {
+    const out = rewriteM3u8(
+      ['#EXTM3U', '#EXT-X-KEY:METHOD=AES-128,URI="k.key"', 'seg0.ts', ''].join('\n'),
+      BASE,
+      0,
+      '/api/proxy?url=',
+      '&ap=T&ads=1'
+    );
+    expect(out).toContain('URI="/api/proxy?url=' + encodeURIComponent('https://cdn.example.com/live/k.key') + '&ap=T&ads=1"');
+    expect(out).toContain('/api/proxy?url=' + encodeURIComponent('https://cdn.example.com/live/seg0.ts') + '&ap=T&ads=1');
+  });
+});
+
 describe('isProxiedUri', () => {
   it('新旧两种代理形式均识别', () => {
     expect(isProxiedUri('/api/proxy/' + encodeURIComponent('https://x.com/a.ts'))).toBe(true);

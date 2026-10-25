@@ -52,6 +52,31 @@ export function verifySession(token: string | undefined | null): boolean {
   return Date.now() < expiresAt;
 }
 
+// —— AirPlay 播放令牌 ——
+// Apple TV 自己去拉流，没有会话 cookie。登录用户可换取一枚短时效令牌，
+// 附在代理地址（含 m3u8 重写后的分片）上放行，过期自动失效。
+
+export const AIRPLAY_TTL_MS = 4 * 60 * 60 * 1000; // 4 小时
+
+/** 生成 AirPlay 令牌：`<expiresAtMs>.<hmac>`（与会话令牌用不同的签名域，互不通用） */
+export function signAirplayToken(now = Date.now()): { token: string; expiresAt: number } {
+  const expiresAt = now + AIRPLAY_TTL_MS;
+  const payload = `airplay:${expiresAt}`;
+  return { token: `${expiresAt}.${hmac(payload)}`, expiresAt };
+}
+
+/** 校验 AirPlay 令牌的签名与有效期 */
+export function verifyAirplayToken(token: string | undefined | null, now = Date.now()): boolean {
+  if (!token) return false;
+  const dot = token.indexOf('.');
+  if (dot <= 0) return false;
+  const expiresAt = parseInt(token.slice(0, dot), 10);
+  if (!Number.isFinite(expiresAt) || now >= expiresAt) return false;
+  const a = Buffer.from(token.slice(dot + 1));
+  const b = Buffer.from(hmac(`airplay:${expiresAt}`));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 /** 恒定时间比较密码（比较 sha256 摘要避免长度泄漏） */
 export function checkPassword(input: string): boolean {
   const password = getPassword();

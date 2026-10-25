@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { guardRequest, jsonError } from '@/lib/api-guard';
 import { checkLiveUrlAllowed, isBlockedByDNS, isValidProxyUrl } from '@/lib/ssrf';
 import { fetchWithSafeRedirects } from '@/lib/fetch-utils';
-import { rewriteM3u8, LIVE_STREAM_BASE } from '@/lib/m3u8';
+import { rewriteM3u8, stripAdGroups, PROXY_BASE, LIVE_STREAM_BASE } from '@/lib/m3u8';
+import { verifyAirplayToken } from '@/lib/auth';
 
 /**
  * 代理目标地址的两种传入形式：
@@ -69,7 +70,13 @@ export function decodePathTarget(encodedUrl: string): string {
  * - m3u8 文本重写为代理地址，分片/key/map 全部经本站转发，规避上游 CORS。
  */
 export async function handleProxyRequest(req: Request, targetUrl: string): Promise<Response> {
-  const guarded = guardRequest(req);
+  // AirPlay：Apple TV 没有会话 cookie，凭短时效令牌（?ap=）放行；令牌无效时仍走 cookie 鉴权
+  const params = new URL(req.url).searchParams;
+  const apToken = params.get('ap');
+  const airplayOk = !!apToken && verifyAirplayToken(apToken);
+  const stripAds = params.get('ads') === '1';
+
+  const guarded = airplayOk ? null : guardRequest(req);
   if (guarded && !looksLikeImageUrl(targetUrl)) return guarded;
 
   if (!isValidProxyUrl(targetUrl)) {
@@ -120,8 +127,13 @@ export async function handleProxyRequest(req: Request, targetUrl: string): Promi
 
   // m3u8 文本：重写为代理地址（以重定向后的最终 URL 为 base 解析相对地址）
   if (isM3u8) {
-    const text = await response.text();
-    return new NextResponse(rewriteM3u8(text, finalUrl), {
+    const raw = await response.text();
+    // AirPlay 播放列表：服务端过滤广告（hls.js loader 不参与），分片地址带上令牌与过滤标记
+    const text = airplayOk && stripAds ? stripAdGroups(raw) : raw;
+    const suffix = airplayOk
+      ? `&ap=${encodeURIComponent(apToken!)}${stripAds ? '&ads=1' : ''}`
+      : '';
+    return new NextResponse(rewriteM3u8(text, finalUrl, 0, PROXY_BASE, suffix), {
       status: response.status,
       headers: {
         'Content-Type': 'application/vnd.apple.mpegurl',

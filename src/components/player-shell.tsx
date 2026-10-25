@@ -6,6 +6,7 @@ import Hls, { type HlsConfig } from 'hls.js';
 
 import { PlaybackRecovery, describeHlsError } from '@/lib/playback-recovery';
 import { createHlsLoader } from '@/lib/hls-loader';
+import { attachAirplaySource } from '@/lib/airplay';
 import {
   getVideoPrefetcher,
   getNextEpisodePrefetcher,
@@ -392,6 +393,8 @@ export function PlayerShell({
 
     hls.loadSource(mediaUrl);
     hls.attachMedia(video);
+    // AirPlay：MSE 播放时 Safari 投不了屏，挂一个带令牌的原生 <source> 供 Apple TV 拉流
+    void attachAirplaySource(video, mediaUrl, propsRef.current.adFilter);
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       recoveryRef.current?.markHealthy();

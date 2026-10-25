@@ -125,3 +125,24 @@ describe('checkRateLimit', () => {
     expect(checkRateLimit('1.2.3.4')).toBe(true);
   });
 });
+
+describe('AirPlay 令牌', () => {
+  it('签发的令牌校验通过，且与会话令牌互不通用', async () => {
+    const { signAirplayToken, verifyAirplayToken } = await import('./auth');
+    const { token } = signAirplayToken();
+    expect(verifyAirplayToken(token)).toBe(true);
+    expect(verifySession(token)).toBe(false);
+    expect(verifyAirplayToken(signSession().token)).toBe(false);
+  });
+
+  it('过期或被篡改的令牌被拒绝', async () => {
+    const { signAirplayToken, verifyAirplayToken, AIRPLAY_TTL_MS } = await import('./auth');
+    const { token, expiresAt } = signAirplayToken(1_000);
+    expect(verifyAirplayToken(token, expiresAt - 1)).toBe(true);
+    expect(verifyAirplayToken(token, expiresAt)).toBe(false);
+    const [exp, sig] = token.split('.');
+    expect(verifyAirplayToken(`${Number(exp) + AIRPLAY_TTL_MS}.${sig}`, 2_000)).toBe(false);
+    expect(verifyAirplayToken('garbage')).toBe(false);
+    expect(verifyAirplayToken(null)).toBe(false);
+  });
+});
