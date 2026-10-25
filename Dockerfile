@@ -22,9 +22,10 @@ ENV HOSTNAME=0.0.0.0
 # 非 root 用户
 RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# --chown：构建主机 umask 严格（如 NAS 上 700 目录）时，非 root 的 nextjs 也能读取 public
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
